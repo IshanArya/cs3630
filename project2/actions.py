@@ -1,5 +1,6 @@
 from cozmo.util import *
 import cozmo
+import threading
 
 def cozmo_program(robot: cozmo.robot.Robot):
 	"""
@@ -25,12 +26,15 @@ def cozmo_program(robot: cozmo.robot.Robot):
 	#Inspection
 
 	global liftLocation
-	global raiseA
+	global stop
+	stop = threading.Event()
 	liftLocation = 1
 	raiseAction = robot.set_lift_height(height = 1.0, duration = 2.0, in_parallel = True)
 	def changeLiftHeight(*args, **kwargs):
 		global liftLocation
-		global raiseA
+		global stop
+		if stop.is_set():
+			return
 		liftLocation = 1 - liftLocation
 		raiseA = robot.set_lift_height(height = liftLocation, duration = 2.0, in_parallel = True)
 		raiseA.on_completed(changeLiftHeight)
@@ -44,7 +48,7 @@ def cozmo_program(robot: cozmo.robot.Robot):
 	robot.turn_in_place(Angle(degrees = 90), in_parallel = True).wait_for_completed()
 	robot.drive_straight(Distance(distance_mm = 100), Speed(speed_mmps = 30), in_parallel = True).wait_for_completed()
 	robot.turn_in_place(Angle(degrees = 90), in_parallel = True).wait_for_completed()
-	if raiseA != None:
-		raiseA.abort()"""
+	stop.set()
+	"""
 
 cozmo.run_program(cozmo_program)
