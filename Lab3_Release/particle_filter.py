@@ -28,13 +28,16 @@ def motion_update(particles, odom):
         x = particle.x
         y = particle.y
         a = particle.h
-        newX = x + x * math.cos(a) - y * math.sin(a)
-        newY = y + x * math.sin(a) + y * math.cos(a)
+        globalDx, globalDy = rotate_point(dx, dy, a)
+        newX = x + globalDx
+        newY = y + globalDy
         motion_particles.append(Particle(newX, newY, a + dh))
 
     return motion_particles
 
 # ------------------------------------------------------------------------
+
+
 def measurement_update(particles, measured_marker_list, grid):
     """ Particle filter measurement update
 
@@ -50,7 +53,7 @@ def measurement_update(particles, measured_marker_list, grid):
 
                 * Note that the robot can only see markers which is in its camera field of view,
                 which is defined by ROBOT_CAMERA_FOV_DEG in setting.py
-				* Note that the robot can see mutliple markers at once, and may not see any one
+                                * Note that the robot can see mutliple markers at once, and may not see any one
 
         grid -- grid world map, which contains the marker information,
                 see grid.py and CozGrid for definition
@@ -61,5 +64,3 @@ def measurement_update(particles, measured_marker_list, grid):
     """
     measured_particles = []
     return measured_particles
-
-
