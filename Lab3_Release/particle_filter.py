@@ -38,6 +38,12 @@ def motion_update(particles, odom):
 # ------------------------------------------------------------------------
 
 
+def changeBasis(particle, relativeCoord):
+    rotX, rotY = rotate_point(relativeCoord[0], relativeCoord[1], particle[2])
+    globX = rotX + particle[0]
+    globY = rotY + particle[1]
+    return (globX, globY)
+
 def measurement_update(particles, measured_marker_list, grid):
     """ Particle filter measurement update
 
