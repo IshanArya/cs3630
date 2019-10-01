@@ -202,6 +202,8 @@ class GUIWindow():
         # Start mainloop and indicate that it is running
         self.running.set()
         while True:
+            import time
+            time.sleep(0.5)
             self.updated.wait()
             if self.updated.is_set():
                 self.update()
