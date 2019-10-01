@@ -1,4 +1,4 @@
-# Ishan Arya & Chris Jung
+# Ishan Arya & Seung Je Jung
 
 from grid import *
 from particle import Particle
