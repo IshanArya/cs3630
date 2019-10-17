@@ -160,12 +160,10 @@ async def run(robot: cozmo.robot.Robot):
     m_confident = False
     action = robot.drive_wheels(l_wheel_speed = 24, r_wheel_speed = 8, duration = 9999999)
     asyncio.gather(action)
-    print(dir(last_pose))
-    print(dir(last_pose.rotation))
     mx = -10000
     my = -10000
     mh = -10000
-    while not m_confident or abs(mx - 6) > 3 or abs(my - 10) > 3 or abs(mh - 0) > 15:
+    while not m_confident or abs(mx - goal[0]) > 3 or abs(my - 10) > 3 or abs(mh - 0) > 15:
         odom = compute_odometry(robot.pose)
         last_pose = robot.pose
         marker_list, annotated_image = await marker_processing(robot, camera_settings, True)
@@ -174,12 +172,15 @@ async def run(robot: cozmo.robot.Robot):
         gui.show_mean(mx, my, mh, m_confident)
         gui.show_camera_image(annotated_image)
         gui.updated.set()
-        while m_confident and abs(mx - goal[0]) > 3 and abs(my - goal[1]) > 3 and abs(mh - goal[2]) > 15:
-            robot.go_to_pose(cozmo.util.Pose(mx - robot.pose.position.x, my - robot.pose.position.y, 0, angle_z = mh - robot.pose.rotation.angle_z.degrees()))
-            odom = compute_odometry(robot.pose)
-            last_pose = robot.pose
-            marker_list, annotated_image = await marker_processing(robot, camera_settings, True)
-            (mx, my, mh, m_confident) = pf.update(odom, marker_list)
+        if m_confident:
+            #stop turning (action)
+            #move to goal code here
+
+            if not m_confident or abs(mx - goal[0]) > 3 or abs(my - 10) > 3 or abs(mh - 0) > 15:
+                #start turning again
+                pass
+
+    print("fin")
 
 
 class CozmoThread(threading.Thread):
