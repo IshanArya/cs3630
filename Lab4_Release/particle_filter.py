@@ -1,10 +1,10 @@
+from itertools import product
 from grid import *
 from particle import Particle
 from utils import *
 from setting import *
 import numpy as np
 np.random.seed(RANDOM_SEED)
-from itertools import product
 
 
 def motion_update(particles, odom):
@@ -37,6 +37,8 @@ def motion_update(particles, odom):
     return motion_particles
 
 # ------------------------------------------------------------------------
+
+
 def measurement_update(particles, measured_marker_list, grid):
     """ Particle filter measurement update
 
@@ -52,7 +54,7 @@ def measurement_update(particles, measured_marker_list, grid):
 
                 * Note that the robot can only see markers which is in its camera field of view,
                 which is defined by ROBOT_CAMERA_FOV_DEG in setting.py
-				* Note that the robot can see mutliple markers at once, and may not see any one
+                                * Note that the robot can see mutliple markers at once, and may not see any one
 
         grid -- grid world map, which contains the marker information,
                 see grid.py and CozGrid for definition
@@ -107,9 +109,10 @@ def measurement_update(particles, measured_marker_list, grid):
         weights = [1 / len(particles)] * len(particles)
 
     # resampling
+    minimumRandomParticles = int(max(outOfGrid * 1.2, 20))
     measured_particles = [Particle(p.x, p.y, p.h) for p in np.random.choice(
-        particles, size=(len(particles) - outOfGrid), p=weights)]
-    for i in range(outOfGrid):
+        particles, size=(len(particles) - minimumRandomParticles), p=weights)]
+    for i in range(minimumRandomParticles):
         rX, rY = grid.random_free_place()
         measured_particles.append(Particle(rX, rY))
 

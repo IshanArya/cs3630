@@ -337,11 +337,11 @@ def process_regions(image, blur_sigma=0.01, opening_size=1, orientation_deviatio
         - the list of regionprops that may be possible marker corners
     '''
     # Blur and equalize the image
-    #image = exposure.equalize_hist(image)
+    # image = exposure.equalize_hist(image)
     image = filters.gaussian(image, sigma=blur_sigma)
 
     # Use local thresholding
-    image = (image <= filters.threshold_sauvola(image, k=0.1))
+    image = (image <= filters.threshold_sauvola(image, k=0.33))
 
     # if opening_size > 0:
     #     image = morphology.erosion(image, selem=morphology.disk(opening_size))

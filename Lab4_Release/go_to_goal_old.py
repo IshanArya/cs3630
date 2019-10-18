@@ -91,7 +91,7 @@ def compute_odometry(curr_pose, cvt_inch=True):
 
 async def marker_processing(robot, camera_settings, show_diagnostic_image=False):
     '''
-    Obtain the visible markers from the current frame from Cozmo's  camera.
+    Obtain the visible markers from the current frame from Cozmo's  camera. 
     Since this is an async function, it must be called using await, for example:
 
         markers, camera_image = await marker_processing(robot, camera_settings, show_diagnostic_image=False)
@@ -101,7 +101,7 @@ async def marker_processing(robot, camera_settings, show_diagnostic_image=False)
         - camera_settings: 3x3 matrix representing the camera calibration settings
         - show_diagnostic_image: if True, shows what the marker detector sees after processing
     Returns:
-        - a list of detected markers, each being a 3-tuple (rx, ry, rh)
+        - a list of detected markers, each being a 3-tuple (rx, ry, rh) 
           (as expected by the particle filter's measurement update)
         - a PIL Image of what Cozmo's camera sees with marker annotations
     '''
@@ -147,8 +147,7 @@ async def run(robot: cozmo.robot.Robot):
     robot.camera.image_stream_enabled = True
     robot.camera.color_image_enabled = False
     robot.camera.enable_auto_exposure()
-    await robot.set_head_angle(cozmo.util.degrees(-1)).wait_for_completed()
-    await robot.set_lift_height(height=0).wait_for_completed()
+    await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
 
     # Obtain the camera intrinsics matrix
     fx, fy = robot.camera.config.focal_length.x_y
@@ -166,30 +165,14 @@ async def run(robot: cozmo.robot.Robot):
     ###################
 
     drive_dist = 0
-    mx = my = mh = -10000
     m_confident = False
-    (gx, gy, gh) = goal
-    goingToGoal = False
-
-    print("=======================================================")
-    print("Starting loop.")
-    startTime = time.time()
-    print(f"Start time: {startTime}")
-    while True:
-
-        if robot.is_picked_up:
-            robot.stop_all_motors()
-            await robot.say_text("Yaaaaaa hooooooo!").wait_for_completed()
-            await robot.play_anim_trigger(cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
-            pf = ParticleFilter(grid)
-            mx = my = mh = -10000
-            m_confident = False
-            goingToGoal = False
-            await robot.set_head_angle(cozmo.util.degrees(-1)).wait_for_completed()
-            await robot.set_lift_height(height=0).wait_for_completed()
-            startTime = time.time()
-            continue
-
+    action = robot.drive_wheels(
+        l_wheel_speed=24, r_wheel_speed=8, duration=9999999)
+    asyncio.gather(action)
+    mx = -10000
+    my = -10000
+    mh = -10000
+    while not m_confident or abs(mx - goal[0]) > 3 or abs(my - 10) > 3 or abs(mh - 0) > 15:
         odom = compute_odometry(robot.pose)
         last_pose = robot.pose
         marker_list, annotated_image = await marker_processing(robot, camera_settings, True)
@@ -198,40 +181,14 @@ async def run(robot: cozmo.robot.Robot):
         gui.show_mean(mx, my, mh, m_confident)
         gui.show_camera_image(annotated_image)
         gui.updated.set()
-        # stop turning (action)
-        # move to goal code here
-        #  or abs(mx - goal[0]) > 3 or abs(my - 10) > 3 or abs(mh - 0) > 15
+        if m_confident:
+            # stop turning (action)
+            # move to goal code here
 
-        if goingToGoal:
-            print(f"Robot Pose: {last_pose}")
-        else:
-            endTime = time.time()
-            passedTime = endTime - startTime
-            if ((passedTime > 45) and m_confident) or (passedTime > 150):
-                print("=======================================================")
-                print(f"Passed Time: {passedTime}")
-                robot.stop_all_motors()
-                print(f"Confidence prediction: x: {mx}, y: {my}, h: {mh}")
-                await robot.turn_in_place(degrees(-mh)).wait_for_completed()
-                mmInInch = 25.4
-                movex = (gx - mx) * mmInInch
-                movey = (gy - my) * mmInInch
+            if not m_confident or abs(mx - goal[0]) > 3 or abs(my - 10) > 3 or abs(mh - 0) > 15:
+                # start turning again
+                pass
 
-                heading_angle = np.arctan2(movey, movex) * 180 / np.pi - 15
-                heading_angle = diff_heading_deg(heading_angle, 0)
-
-                goalPose = Pose(movex, movey, 0,
-                                angle_z=degrees(heading_angle))
-                print(f"Goal Pose: {goalPose}")
-                await robot.go_to_pose(goalPose, relative_to_robot=True).wait_for_completed()
-                await robot.turn_in_place(degrees(-heading_angle)).wait_for_completed()
-
-                goingToGoal = True
-                print("=======================================================")
-            else:
-                robot.drive_wheel_motors(l_wheel_speed=17, r_wheel_speed=5)
-
-    await robot.say_text("Finee!").wait_for_completed()
     print("fin")
 
 
