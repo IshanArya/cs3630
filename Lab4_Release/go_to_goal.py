@@ -1,5 +1,5 @@
-## If you run into an "[NSApplication _setup] unrecognized selector" problem on macOS,
-## try uncommenting the following snippet
+# If you run into an "[NSApplication _setup] unrecognized selector" problem on macOS,
+# try uncommenting the following snippet
 
 # try:
 #     import matplotlib
@@ -27,7 +27,9 @@ from setting import *
 from particle_filter import *
 from utils import *
 
-#particle filter functionality
+# particle filter functionality
+
+
 class ParticleFilter:
 
     def __init__(self, grid):
@@ -40,25 +42,28 @@ class ParticleFilter:
         self.particles = motion_update(self.particles, odom)
 
         # ---------- Sensor (markers) model update ----------
-        self.particles = measurement_update(self.particles, r_marker_list, self.grid)
+        self.particles = measurement_update(
+            self.particles, r_marker_list, self.grid)
 
         # ---------- Show current state ----------
         # Try to find current best estimate for display
         m_x, m_y, m_h, m_confident = compute_mean_pose(self.particles)
         return (m_x, m_y, m_h, m_confident)
 
+
 # tmp cache
-last_pose = cozmo.util.Pose(0,0,0,angle_z=cozmo.util.Angle(degrees=0))
+last_pose = cozmo.util.Pose(0, 0, 0, angle_z=cozmo.util.Angle(degrees=0))
 flag_odom_init = False
 
 # goal location for the robot to drive to, (x, y, theta)
-goal = (6,10,0)
+goal = (6, 10, 0)
 
 # map
 Map_filename = "map_arena.json"
 grid = CozGrid(Map_filename)
 gui = GUIWindow(grid, show_camera=True)
 pf = ParticleFilter(grid)
+
 
 def compute_odometry(curr_pose, cvt_inch=True):
     '''
@@ -76,7 +81,7 @@ def compute_odometry(curr_pose, cvt_inch=True):
         last_pose.rotation.angle_z.degrees
     curr_x, curr_y, curr_h = curr_pose.position.x, curr_pose.position.y, \
         curr_pose.rotation.angle_z.degrees
-    
+
     dx, dy = rotate_point(curr_x-last_x, curr_y-last_y, -last_h)
     if cvt_inch:
         dx, dy = dx / grid.scale, dy / grid.scale
@@ -86,7 +91,7 @@ def compute_odometry(curr_pose, cvt_inch=True):
 
 async def marker_processing(robot, camera_settings, show_diagnostic_image=False):
     '''
-    Obtain the visible markers from the current frame from Cozmo's  camera. 
+    Obtain the visible markers from the current frame from Cozmo's  camera.
     Since this is an async function, it must be called using await, for example:
 
         markers, camera_image = await marker_processing(robot, camera_settings, show_diagnostic_image=False)
@@ -96,7 +101,7 @@ async def marker_processing(robot, camera_settings, show_diagnostic_image=False)
         - camera_settings: 3x3 matrix representing the camera calibration settings
         - show_diagnostic_image: if True, shows what the marker detector sees after processing
     Returns:
-        - a list of detected markers, each being a 3-tuple (rx, ry, rh) 
+        - a list of detected markers, each being a 3-tuple (rx, ry, rh)
           (as expected by the particle filter's measurement update)
         - a PIL Image of what Cozmo's camera sees with marker annotations
     '''
@@ -109,21 +114,24 @@ async def marker_processing(robot, camera_settings, show_diagnostic_image=False)
     # Convert the image to grayscale
     image = np.array(image_event.image)
     image = color.rgb2gray(image)
-    
+
     # Detect the markers
-    markers, diag = detect.detect_markers(image, camera_settings, include_diagnostics=True)
+    markers, diag = detect.detect_markers(
+        image, camera_settings, include_diagnostics=True)
 
     # Measured marker list for the particle filter, scaled by the grid scale
     marker_list = [marker['xyh'] for marker in markers]
-    marker_list = [(x/grid.scale, y/grid.scale, h) for x,y,h in marker_list]
+    marker_list = [(x/grid.scale, y/grid.scale, h) for x, y, h in marker_list]
 
     # Annotate the camera image with the markers
     if not show_diagnostic_image:
-        annotated_image = image_event.image.resize((image.shape[1] * 2, image.shape[0] * 2))
+        annotated_image = image_event.image.resize(
+            (image.shape[1] * 2, image.shape[0] * 2))
         annotator.annotate_markers(annotated_image, markers, scale=2)
     else:
         diag_image = color.gray2rgb(diag['filtered_image'])
-        diag_image = Image.fromarray(np.uint8(diag_image * 255)).resize((image.shape[1] * 2, image.shape[0] * 2))
+        diag_image = Image.fromarray(
+            np.uint8(diag_image * 255)).resize((image.shape[1] * 2, image.shape[0] * 2))
         annotator.annotate_markers(diag_image, markers, scale=2)
         annotated_image = diag_image
 
@@ -139,15 +147,15 @@ async def run(robot: cozmo.robot.Robot):
     robot.camera.image_stream_enabled = True
     robot.camera.color_image_enabled = False
     robot.camera.enable_auto_exposure()
-    await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
+    await robot.set_head_angle(cozmo.util.degrees(-4)).wait_for_completed()
 
     # Obtain the camera intrinsics matrix
     fx, fy = robot.camera.config.focal_length.x_y
     cx, cy = robot.camera.config.center.x_y
     camera_settings = np.array([
         [fx,  0, cx],
-        [ 0, fy, cy],
-        [ 0,  0,  1]
+        [0, fy, cy],
+        [0,  0,  1]
     ], dtype=np.float)
 
     ###################
@@ -157,13 +165,26 @@ async def run(robot: cozmo.robot.Robot):
     ###################
 
     drive_dist = 0
+    mx = my = mh = -10000
     m_confident = False
-    action = robot.drive_wheels(l_wheel_speed = 24, r_wheel_speed = 8, duration = 9999999)
-    asyncio.gather(action)
-    mx = -10000
-    my = -10000
-    mh = -10000
-    while not m_confident or abs(mx - goal[0]) > 3 or abs(my - 10) > 3 or abs(mh - 0) > 15:
+    (gx, gy, gh) = goal
+    goingToGoal = False
+
+    print("=======================================================")
+    print("Starting loop.")
+    while True:
+
+        if robot.is_picked_up:
+            robot.stop_all_motors()
+            await robot.say_text("Yaaaaaa hooooooo!").wait_for_completed()
+            await robot.play_anim_trigger(cozmo.anim.Triggers.CodeLabUnhappy).wait_for_completed()
+            pf = ParticleFilter(grid)
+            mx = my = mh = -10000
+            m_confident = False
+            goingToGoal = False
+            await robot.set_head_angle(cozmo.util.degrees(-4)).wait_for_completed()
+            continue
+
         odom = compute_odometry(robot.pose)
         last_pose = robot.pose
         marker_list, annotated_image = await marker_processing(robot, camera_settings, True)
@@ -172,24 +193,48 @@ async def run(robot: cozmo.robot.Robot):
         gui.show_mean(mx, my, mh, m_confident)
         gui.show_camera_image(annotated_image)
         gui.updated.set()
-        if m_confident:
-            #stop turning (action)
-            #move to goal code here
+        # stop turning (action)
+        # move to goal code here
+        #  or abs(mx - goal[0]) > 3 or abs(my - 10) > 3 or abs(mh - 0) > 15
 
-            if not m_confident or abs(mx - goal[0]) > 3 or abs(my - 10) > 3 or abs(mh - 0) > 15:
-                #start turning again
-                pass
+        if goingToGoal:
+            print(f"Robot Pose: {last_pose}")
+        else:
+            robot.stop_all_motors()
+            if m_confident:
+                print("=======================================================")
+                print(f"Confidence prediction: x: {mx}, y: {my}, h: {mh}")
+                await robot.turn_in_place(degrees(-mh)).wait_for_completed()
+                mmInInch = 25.4
+                movex = (gx - mx) * mmInInch
+                movey = (gy - my) * mmInInch
 
+                heading_angle = np.arctan2(movey, movex) * 180 / np.pi
+                heading_angle = diff_heading_deg(heading_angle, 0)
+
+                goalPose = Pose(movex, movey, 0,
+                                angle_z=degrees(heading_angle))
+                print(f"Goal Pose: {goalPose}")
+                await robot.go_to_pose(goalPose, relative_to_robot=True).wait_for_completed()
+                await robot.turn_in_place(degrees(-heading_angle)).wait_for_completed()
+
+                goingToGoal = True
+                print("=======================================================")
+            else:
+                robot.drive_wheel_motors(l_wheel_speed=23, r_wheel_speed=8)
+
+    await robot.say_text("Finee!").wait_for_completed()
     print("fin")
 
 
 class CozmoThread(threading.Thread):
-    
+
     def __init__(self):
         threading.Thread.__init__(self, daemon=False)
 
     def run(self):
-        cozmo.robot.Robot.drive_off_charger_on_connect = False  # Cozmo can stay on his charger
+        # Cozmo can stay on his charger
+        cozmo.robot.Robot.drive_off_charger_on_connect = False
         cozmo.run_program(run, use_viewer=False)
 
 
@@ -203,4 +248,3 @@ if __name__ == '__main__':
     gui.show_particles(pf.particles)
     gui.show_mean(0, 0, 0)
     gui.start()
-
